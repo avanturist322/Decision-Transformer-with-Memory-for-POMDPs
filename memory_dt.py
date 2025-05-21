@@ -120,6 +120,8 @@ class MemoryDecisionTransformer(nn.Module):
         self.n_embed = n_embed
         self.context_length = context_length
         self.memory_type = memory_type
+        self.memory_dim = memory_dim
+        self.n_layer = n_layer
         
         # (R,o,a) encoders
         self.state_encoder = nn.Linear(state_dim, n_embed)
@@ -131,12 +133,15 @@ class MemoryDecisionTransformer(nn.Module):
         # Memory module (optional)
         if memory_type == 'gru':
             # TODO: Implement GRU memory
+            self.memory = nn.GRU(input_size=n_embed, hidden_size=memory_dim, batch_first=True)  # например
             self.memory_proj = nn.Linear(memory_dim, n_embed)
         elif memory_type == 'lstm':
             # TODO: Implement LSTM memory
+            self.memory = nn.LSTM(input_size=n_embed, hidden_size=memory_dim, batch_first=True)
             self.memory_proj = nn.Linear(memory_dim, n_embed)
         else:
             self.memory = None
+            self.memory_proj = None
         
         # Transformer
         transformer_layer = nn.TransformerEncoderLayer(
@@ -181,17 +186,23 @@ class MemoryDecisionTransformer(nn.Module):
         action_embeddings = self.action_encoder(actions)
         return_embeddings = self.return_encoder(rtgs)
         
+        device = state_embeddings.device
+        dtype = state_embeddings.dtype
+        
         # add memory
         if self.memory is not None:
             if self.memory_type == 'gru':
                 if self.hidden_state is None:
                     # TODO: Implement GRU memory
-                
+                    self.hidden_state = torch.zeros( 1, batch_size, self.memory_dim, device=device, dtype=dtype )
+                    
                 memory_out, self.hidden_state = self.memory(state_embeddings, self.hidden_state)
             elif self.memory_type == 'lstm':
                 if self.hidden_state is None:
                     # TODO: Implement LSTM memory
-                
+                    self.hidden_state = ( torch.zeros(1, batch_size, self.memory_dim, device=device, dtype=dtype),
+                                          torch.zeros(1, batch_size, self.memory_dim, device=device, dtype=dtype) )
+                    
                 memory_out, self.hidden_state = self.memory(state_embeddings, self.hidden_state)
             
             # project memory to embedding dimension
@@ -308,7 +319,7 @@ def train_memory_dt(
         context_length=context_length,
         memory_type=memory_type,
         memory_dim=memory_dim,
-        dropout=0.1
+        dropout=0.1,
     )
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

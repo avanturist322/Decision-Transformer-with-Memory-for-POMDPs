@@ -1,0 +1,18 @@
+{
+  "context": "..",
+  "dockerFile": "../Dockerfile",
+
+  // GPU пробуем только если он реально доступен
+  "runArgs": [ "--gpus", "all", "-p", "8888:8888" ],
+
+  // (необязательно) автоматически добавит в контейнер драйверы CUDA
+  "features": {
+    "ghcr.io/devcontainers/features/nvidia-cuda:1.2": {}
+  },
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  // Быстрая проверка после сборки
+  "postCreateCommand": "python - <<'PY'\nimport torch, os; print('CUDA available:', torch.cuda.is_available()); PY"
+}
